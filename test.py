@@ -5,7 +5,7 @@ from time import sleep
 import matplotlib.pyplot as plt
 import numpy as np
 
-link = EngageLink(username='nkyriazis@gmail.com', password='8yel1a.')
+link = EngageLink(token='YeT9S8nKWOF1gsGBjZClzrXwObMxdTkm')
 res = link.getTimeSeries()
 
 # plt.ion()
