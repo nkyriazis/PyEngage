@@ -25,7 +25,7 @@ def milis2date(millis):
 
 
 def date2milis(dt):
-    return (dt - milis2date(0)).total_seconds() * 1000.0
+    return (dt - milis2date(0)).total_seconds()
 
 
 class EngageLink(object):
@@ -62,26 +62,27 @@ class EngageLink(object):
     def getTimeSeries(self, offset=+2,
                       fromTime=datetime.datetime.now() - datetime.timedelta(days=1),
                       toTime=datetime.datetime.now(),
-                      aggPeriod='month', aggFunc='avg'):
-        print fromTime
-        print toTime
-        result = self.call('getTimeSeries', offset=-2 * offset,
-                           fromTime=date2milis(fromTime), toTime=date2milis(toTime),
-                           aggPeriod=aggPeriod, aggFunc=aggFunc)
-        return result
-
-    def mapTimeSeries(self, getter):
-        results = self.call(getter)
+                      aggPeriod='minute', aggFunc='avg'):
+        results = self.call('getTimeSeries',
+                            offset=-60 * offset,
+                            fromTime=date2milis(fromTime),
+                            toTime=date2milis(toTime),
+                            aggPeriod=aggPeriod,
+                            aggFunc=aggFunc)
         return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems()])
 
-    def getDay(self):
-        return self.mapTimeSeries('getDay')
+    def mapTimeSeries(self, getter, offset):
+        results = self.call(getter, offset=-60*offset)
+        return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems()])
 
-    def getWeek(self):
-        return self.mapTimeSeries('getWeek')
+    def getDay(self, offset=0):
+        return self.mapTimeSeries('getDay', offset)
 
-    def getMonth(self):
-        return self.mapTimeSeries('getMonth')
+    def getWeek(self, offset=0):
+        return self.mapTimeSeries('getWeek', offset)
 
-    def getYear(self):
-        return self.mapTimeSeries('getYear')
+    def getMonth(self, offset=0):
+        return self.mapTimeSeries('getMonth', offset)
+
+    def getYear(self, offset=0):
+        return self.mapTimeSeries('getYear', offset)
