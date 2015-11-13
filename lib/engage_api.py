@@ -2,6 +2,8 @@ from urllib2 import Request, urlopen
 from urllib import urlencode
 import json
 import datetime
+import numpy as np
+from itertools import izip
 
 
 def dourl(req):
@@ -69,11 +71,11 @@ class EngageLink(object):
                             toTime=date2milis(toTime),
                             aggPeriod=aggPeriod,
                             aggFunc=aggFunc)
-        return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems()])
+        return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems() if val[0] != 'undef'])
 
     def mapTimeSeries(self, getter, offset):
-        results = self.call(getter, offset=-60*offset)
-        return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems()])
+        results = self.call(getter, offset=-60 * offset)
+        return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems() if val[0] != 'undef'])
 
     def getDay(self, offset=0):
         return self.mapTimeSeries('getDay', offset)
@@ -86,3 +88,27 @@ class EngageLink(object):
 
     def getYear(self, offset=0):
         return self.mapTimeSeries('getYear', offset)
+
+    def getImageDate(self, imgFilename):
+        from PIL import Image
+        TSTAG = 36867
+        img = Image.open(imgFilename)
+        exif = img._getexif()
+        return datetime.datetime.strptime(exif[TSTAG][0], '%Y:%m:%d %H:%M:%S')
+
+    def getTimeSeriesBetweenImages(self, img1, img2, offset=2):
+        return self.getTimeSeries(offset=offset,
+                                  fromTime=self.getImageDate(img1),
+                                  toTime=self.getImageDate(img2))
+
+    def integrateTimeSeries(self, timeSeries):
+        kwhs = np.array([ts[1] for ts in timeSeries])
+        kwhs = kwhs[~np.isnan(kwhs)]
+        return kwhs.sum() * (1.0 / 60.0)
+
+    def computeCost(self, timeSeries, timeDependentKwhTariffFunc):
+        kwhs = np.array([ts[1] for ts in timeSeries])
+        mask = ~np.isnan(kwhs)
+        times = np.array([ts[0] for ts in timeSeries])
+        costs = np.array([timeDependentKwhTariffFunc(t.time()) for t in times])
+        return np.sum([cost * kwh * (1.0 / 60.0) for cost, kwh in izip(costs[mask], kwhs[mask])])
