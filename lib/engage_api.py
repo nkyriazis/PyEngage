@@ -48,7 +48,7 @@ class EngageLink(object):
 
     def getInstant(self):
         result = self.call('getInstant')
-        return result['reading'], result['age'], milis2date(result['last_reading_time'])
+        return result['reading'] / 1000.0, result['age'], milis2date(result['last_reading_time'])
 
     def getMontlyBudget(self):
         return self.call('getBudget')['monthly_budget']
@@ -71,11 +71,17 @@ class EngageLink(object):
                             toTime=date2milis(toTime),
                             aggPeriod=aggPeriod,
                             aggFunc=aggFunc)
-        return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems() if val[0] != 'undef'])
+        return self.parseResults(results)
+
+    def parseResults(self, results):
+        def getNumber(v):
+            try: return float(v)
+            except: return 0
+        return sorted([(milis2date(int(key)), getNumber(val[0])) for key, val in results['data'].iteritems()])
 
     def mapTimeSeries(self, getter, offset):
         results = self.call(getter, offset=-60 * offset)
-        return sorted([(milis2date(int(key)), val[0]) for key, val in results['data'].iteritems() if val[0] != 'undef'])
+        return self.parseResults(results)
 
     def getDay(self, offset=0):
         return self.mapTimeSeries('getDay', offset)
@@ -106,9 +112,29 @@ class EngageLink(object):
         kwhs = kwhs[~np.isnan(kwhs)]
         return kwhs.sum() * (1.0 / 60.0)
 
+    def integrateTimeSeriesMulti(self, timeSeries, timeMapping):
+        timestamps = np.array([ts[0] for ts in timeSeries])
+        kwhs = np.array([ts[1] for ts in timeSeries])
+
+        ret = {}
+
+        for t, v in izip(timestamps, kwhs):
+            key = timeMapping(t)
+            if key in ret:
+                sum = ret[key]
+            else:
+                sum = 0
+            sum += v
+            ret[key] = sum
+
+        for key in ret:
+            ret[key] /= 60.0
+
+        return ret
+
     def computeCost(self, timeSeries, timeDependentKwhTariffFunc):
         kwhs = np.array([ts[1] for ts in timeSeries])
         mask = ~np.isnan(kwhs)
         times = np.array([ts[0] for ts in timeSeries])
-        costs = np.array([timeDependentKwhTariffFunc(t.time()) for t in times])
+        costs = np.array([timeDependentKwhTariffFunc(t) for t in times])
         return np.sum([cost * kwh * (1.0 / 60.0) for cost, kwh in izip(costs[mask], kwhs[mask])])
