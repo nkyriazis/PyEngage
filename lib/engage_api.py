@@ -3,12 +3,13 @@ __copyright__ = "Copyright 2015 Nikolaos Kyriazis"
 __license__ = "APACHE"
 __version__ = "2.0"
 
-from urllib2 import Request, urlopen
-from urllib import urlencode
-import json
 import datetime
-import numpy as np
+import json
 from itertools import izip
+from urllib import urlencode
+from urllib2 import Request, urlopen
+
+import numpy as np
 
 
 def json_get_url(req):
@@ -53,6 +54,7 @@ def efergy_ts_to_datetime(efergyTS):
     """
     return datetime.datetime.utcfromtimestamp(efergyTS / 1000.0)
 
+
 def datetime_to_efergy_ts(datetime):
     """ Encodes a datetime object into an efergy timestamp.
 
@@ -96,8 +98,7 @@ class EngageLink(object):
             self.token = token
         elif username is not None and password is not None:
             self.token = json_get_url_params(self.base + 'get_token',
-                                             {'username': username, 'password': password, 'device': 'android'})[
-                'token']
+                                             {'username': username, 'password': password, 'device': 'android'})['token']
         else:
             raise RuntimeError('need to specify either token or username and password')
 
@@ -165,47 +166,47 @@ class EngageLink(object):
         :param results: A json timeseries.
         :return: A list of pairs of datetimes and measurements in kWs.
         """
-        def getNumber(v):
-            try: return float(v)
-            except: return 0
-        return sorted([(efergy_ts_to_datetime(int(key)), getNumber(val[0])) for key, val in results['data'].iteritems()])
 
-    def makeTimeSeriesQuery(self, getter, offset):
+        def getNumber(v):
+            try:
+                return float(v)
+            except:
+                return 0
+
+        return sorted(
+            [(efergy_ts_to_datetime(int(key)), getNumber(val[0])) for key, val in results['data'].iteritems()])
+
+    def makeTimeSeriesQuery(self, getter):
         """ Helper function to execute standard time series queries.
         :param getter: The query method name.
-        :param offset: The GMT offset.
         :return: :return: A list of pairs, with each pair comprising a datetime and a measurement in kWs.
         """
-        results = self.call(getter, offset=-60 * offset)
+        results = self.call(getter)
         return self.parseResults(results)
 
-    def getDay(self, offset=0):
+    def getDay(self):
         """ Day query.
-        :param offset: GMT offset.
         :return: Per minute consumption for the last day.
         """
-        return self.makeTimeSeriesQuery('getDay', offset)
+        return self.makeTimeSeriesQuery('getDay')
 
-    def getWeek(self, offset=0):
+    def getWeek(self):
         """ Week query
-        :param offset: GMT offset.
         :return: Per day consumption for the last week.
         """
-        return self.makeTimeSeriesQuery('getWeek', offset)
+        return self.makeTimeSeriesQuery('getWeek')
 
-    def getMonth(self, offset=0):
+    def getMonth(self):
         """ Month query
-        :param offset: GMT offset.
         :return: Per day consumption for the last 28 days of the month.
         """
-        return self.makeTimeSeriesQuery('getMonth', offset)
+        return self.makeTimeSeriesQuery('getMonth')
 
-    def getYear(self, offset=0):
+    def getYear(self):
         """ Year query
-        :param offset: GMT offset.
         :return: Per month consumption for the last year.
         """
-        return self.makeTimeSeriesQuery('getYear', offset)
+        return self.makeTimeSeriesQuery('getYear')
 
     def getImageDate(self, imgFilename):
         """ Helper function to extract data from image file meta-data.
@@ -234,7 +235,9 @@ class EngageLink(object):
         :param timeSeries: The time series to integrate
         :return: The total amount of kWhs
         """
-        def trivialTimeMapping(dt) : return 0
+
+        def trivialTimeMapping(dt): return 0
+
         return self.integrateTimeSeriesMulti(timeSeries, trivialTimeMapping)[0]
 
     def integrateTimeSeriesMulti(self, timeSeries, timeMapping):
